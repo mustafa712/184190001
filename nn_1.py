@@ -122,6 +122,15 @@ class Net(object):
             else:
                 del_W = [np.sum(del_b[0]*self.activation[i - 1], axis=0)/m] + del_W
 
+        for i in range(self.num_layers):
+            del_W[i] += self.weights[i]
+            del_b[i] += self.biases[i]
+
+        del_W[-1] += self.weights[-1]
+        del_b[-1] += self.biases[-1]
+
+        return del_W, del_b
+
 
 class Optimizer(object):
     '''
