@@ -115,8 +115,12 @@ class Net(object):
         del_b = [np.sum(twoyhat_y)/m]
         relu_d = np.vectorize(lambda x : 1 if x > 0 else 0)
 
-        for i in range(self.num_layers - 1, -1, -1):
+        for i in range(self.num_layers - 1, 0, -1):
             del_b = [np.sum(np.matmul(self.weights[i], del_b[0])*relu_d(self.z[i]), axis=0)/m] + del_b
+            if i == 1:
+                del_W = [np.sum(del_b[0]*self.X, axis=0)/m] + del_W
+            else:
+                del_W = [np.sum(del_b[0]*self.activation[i - 1], axis=0)/m] + del_W
 
 
 class Optimizer(object):
