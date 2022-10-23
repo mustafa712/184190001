@@ -174,7 +174,7 @@ def loss_mse(y, y_hat):
     ----------
         MSE loss between y and y_hat.
     '''
-    raise NotImplementedError
+    return (np.linalg.norm(y-y_hat))**2
 
 def loss_regularization(weights, biases):
     '''
@@ -188,7 +188,7 @@ def loss_regularization(weights, biases):
     ----------
         l2 regularization loss 
     '''
-    raise NotImplementedError
+    return (np.linalg.norm(weights)**2+np.linalg.norm(bias)**2)**(1/2)
 
 def loss_fn(y, y_hat, weights, biases, lamda):
     '''
