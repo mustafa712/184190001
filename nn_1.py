@@ -77,15 +77,15 @@ class Net(object):
         relu = np.vectorize(lambda _ : max(0, _))
         for i in range(self.num_layers):
             if i == 0:
-                values = np.matmul(X, self.weights[i])
+                values = np.matmul(X, self.weights[i])\
                                    + self.biases[i].transpose()
             else:
-                values = np.matmul(self.activation[i - 1], self.weights[i])
+                values = np.matmul(self.activation[i - 1], self.weights[i])\
                                    + self.biases[i].transpose()
             self.z.append(values)
             self.activation.append(relu(values))
 
-        self.output = np.matmul(self.activation[-1], self.weights[-1])
+        self.output = np.matmul(self.activation[-1], self.weights[-1])\
                                        + self.biases[-1].transpose()
         return self.output
 
@@ -188,7 +188,7 @@ def loss_regularization(weights, biases):
     ----------
         l2 regularization loss 
     '''
-    return (np.linalg.norm(weights)**2+np.linalg.norm(bias)**2)**(1/2)
+    return (np.linalg.norm(weights)**2+np.linalg.norm(bias)**2)
 
 def loss_fn(y, y_hat, weights, biases, lamda):
     '''
@@ -352,7 +352,7 @@ def main():
         train_input, train_target,
         dev_input, dev_target
     )
-    get_test_data_predictions(net, test_input)
+    #get_test_data_predictions(net, test_input)
 
 
 if __name__ == '__main__':
