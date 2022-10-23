@@ -203,9 +203,9 @@ def loss_fn(y, y_hat, weights, biases, lamda):
 
     Returns
     ----------
-        l2 regularization loss 
+        l2 regularization loss
     '''
-    raise NotImplementedError
+    return loss_mse(y, y_hat) + lamda*loss_regularization(weights, biases)
 
 def rmse(y, y_hat):
     '''
@@ -220,7 +220,8 @@ def rmse(y, y_hat):
     ----------
         RMSE between y and y_hat.
     '''
-    raise NotImplementedError
+    m = len(y)
+    return (((np.linalg.norm(y - y_hat))**2)/m)**0.5
 
 def cross_entropy_loss(y, y_hat):
     '''
