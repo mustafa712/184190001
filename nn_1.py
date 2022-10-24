@@ -107,20 +107,22 @@ class Net(object):
 
         Hint: You need to do a forward pass before performing backward pass.
         '''
-
         twoyhat_y = 2*(self.output - y)
         m = len(y)
 
-        del_W = [np.sum(twoyhat_y*self.activation[-1], axis=0)/m]
-        del_b = [np.sum(twoyhat_y)/m]
+        dw = np.sum(twoyhat_y*self.activation[-1], axis=0)/m
+        del_W = [dw.reshape(self.num_units, 1)]
+        db = np.sum(twoyhat_y)/m
+        del_b = [db.reshape(1, 1)]
         relu_d = np.vectorize(lambda x : 1 if x > 0 else 0)
 
-        for i in range(self.num_layers - 1, 0, -1):
-            del_b = [np.sum(np.matmul(self.weights[i], del_b[0])*relu_d(self.z[i]), axis=0)/m] + del_b
-            if i == 1:
-                del_W = [np.sum(del_b[0]*self.X, axis=0)/m] + del_W
+        for i in range(self.num_layers - 1, -1, -1):
+            delta = np.matmul(self.weights[i+1], del_b[0]).transpose() * relu_d(self.z[i])
+            del_b = [(np.sum(delta, axis=0)/m).reshape(self.biases[i].shape)] + del_b
+            if i == 0:
+                del_W = [np.matmul(X.transpose(), delta)/m] + del_W
             else:
-                del_W = [np.sum(del_b[0]*self.activation[i - 1], axis=0)/m] + del_W
+                del_W = [np.sum(self.activation[i - 1].transpose(), delta)/m] + del_W
 
         for i in range(self.num_layers):
             del_W[i] += lamda*self.weights[i]
@@ -158,7 +160,13 @@ class Optimizer(object):
             delta_weights: Gradients of weights with respect to loss.
             delta_biases: Gradients of biases with respect to loss.
         '''
-        return weights - self.lr*delta_weights, biases - self.lr*delta_biases
+        new_w = []
+        for w, dw in zip(weights, delta_weights):
+            new_w.append(w - self.lr*dw)
+        new_b = []
+        for b, db in zip(biases, delta_biases):
+            new_b.append(b - self.lr*b)
+        return new_w, new_b
 
 
 def loss_mse(y, y_hat):
@@ -188,7 +196,12 @@ def loss_regularization(weights, biases):
     ----------
         l2 regularization loss 
     '''
-    return (np.linalg.norm(weights)**2+np.linalg.norm(bias)**2)
+    loss = 0
+    for w in weights:
+        loss += np.linalg.norm(w.flatten())**2
+    for b in biases:
+        loss += np.linalg.norm(b.flatten())**2
+    return loss
 
 def loss_fn(y, y_hat, weights, biases, lamda):
     '''
@@ -279,7 +292,7 @@ def train(
             batch_loss = loss_fn(batch_target, pred, net.weights, net.biases, lamda)
             epoch_loss += batch_loss
 
-            #print(e, i, rmse(batch_target, pred), batch_loss)
+            print(e, i, rmse(batch_target, pred), batch_loss)
 
         #print(e, epoch_loss)
 
@@ -330,6 +343,8 @@ def read_data():
 
     train_target, train_input = train_data[:,0], train_data[:,1:]
     dev_target, dev_input = dev_data[:,0], dev_data[:,1:]
+    train_target = train_target.reshape(len(train_target), 1)
+    dev_target = dev_target.reshape(len(dev_target), 1)
 
     return train_input, train_target, dev_input, dev_target, test_input
 
@@ -345,6 +360,8 @@ def main():
     lamda = 0.1 # Regularization Parameter
 
     train_input, train_target, dev_input, dev_target, test_input = read_data()
+    train_target = (train_target - 1900)/200
+    dev_target = (dev_target - 1900)/200
     net = Net(num_layers, num_units)
     optimizer = Optimizer(learning_rate)
     train(
