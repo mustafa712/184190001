@@ -82,6 +82,7 @@ class Net(object):
             else:
                 values = np.matmul(self.activation[i - 1], self.weights[i])\
                                    + self.biases[i].transpose()
+            #print("Values", values)
             self.z.append(values)
             self.activation.append(relu(values))
 
@@ -122,7 +123,7 @@ class Net(object):
             if i == 0:
                 del_W = [np.matmul(X.transpose(), delta)/m] + del_W
             else:
-                del_W = [np.sum(self.activation[i - 1].transpose(), delta)/m] + del_W
+                del_W = [np.matmul(self.activation[i - 1].transpose(), delta)/m] + del_W
 
         for i in range(self.num_layers):
             del_W[i] += lamda*self.weights[i]
@@ -131,8 +132,70 @@ class Net(object):
         del_W[-1] += lamda*self.weights[-1]
         del_b[-1] += lamda*self.biases[-1]
 
+        #print("db", del_b, "dw", del_W)
+
         return del_W, del_b
 
+    def save(self, fname):
+        with open(fname, "w") as f:
+            f.write(f"{self.num_layers}\n")
+            f.write(f"{self.num_units}\n")
+            for i in range(self.num_layers):
+                if i == 0:
+                    for r in range(NUM_FEATS):
+                        for c in range(self.num_units):
+                            f.write(f"{self.weights[i][r, c]},")
+                        f.write("\n")
+                else:
+                    for r in range(self.num_units):
+                        for c in range(self.num_units):
+                            f.write(f"{self.weights[i][r, c]},")
+                        f.write("\n")
+                for j in range(self.num_units):
+                    f.write(f"{self.biases[i][j, 0]},")
+                f.write("\n")
+            for j in range(self.num_units):
+                f.write(f"{self.weights[-1][j, 0]},")
+            f.write("\n")
+            f.write(f"{self.biases[-1][0, 0]}")
+
+    def set(self, fname):
+        with open(fname, "r") as f:
+            line = f.readline()
+            self.num_layers = int(line[:-1])
+            line = f.readline()
+            self.num_units = int(line[:-1])
+            self.weights = []
+            self.biases = []
+            for i in range(self.num_layers):
+                if i == 0:
+                    for r in range(NUM_FEATS):
+                        line = f.readline().split(",")
+                        w = np.zeros(shape=(NUM_FEATS, self.num_units))
+                        for c in range(self.num_units):
+                            w[r, c] = float(line[c])
+                    self.weights.append(w)
+                else:
+                    for r in range(self.num_units):
+                        line = f.readline().split(",")
+                        w = np.zeros(shape=(self.num_units, self.num_units))
+                        for c in range(self.num_units):
+                            w[r, c] = float(line[c])
+                    self.weights.append(w)
+                line = f.readline().split(",")
+                b = np.zeros(shape=(self.num_units, 1))
+                for j in range(self.num_units):
+                    b[j, 0] = float(line[j])
+                self.biases.append(b)
+            line = f.readline.split(",")
+            w = np.zeros(shape=(self.num_units, 1))
+            for j in range(self.num_units):
+                w[j, 0] = float(line[j])
+            self.weights.append(w)
+            line = f.readline()
+            b = np.zeros(shape=(1, 1))
+            b[0, 0] = float(line)
+            self.biases.append(b)
 
 class Optimizer(object):
     '''
@@ -276,12 +339,15 @@ def train(
         for i in range(0, m, batch_size):
             batch_input = train_input[i:i+batch_size]
             batch_target = train_target[i:i+batch_size]
+            ## Forward prop
             pred = net(batch_input)
 
             # Compute gradients of loss w.r.t. weights and biases
+            ## Backward prop
             dW, db = net.backward(batch_input, batch_target, lamda)
 
             # Get updated weights based on current weights and gradients
+            ## SGD
             weights_updated, biases_updated = optimizer.step(net.weights, net.biases, dW, db)
 
             # Update model's weights and biases
@@ -289,6 +355,7 @@ def train(
             net.biases = biases_updated
 
             # Compute loss for the batch
+            #print(batch_target, pred)
             batch_loss = loss_fn(batch_target, pred, net.weights, net.biases, lamda)
             epoch_loss += batch_loss
 
@@ -323,16 +390,16 @@ def get_test_data_predictions(net, inputs):
         predictions (optional): Predictions obtained from forward pass
                                 on test data, numpy array of shape m x 1
     '''
-    raise NotImplementedError
+    pred = net(inputs)
+    pred = pred*200 + 1900
+    pred = pred.astype(int)
+    return pred
 
 def read_data():
     '''
     Read the train, dev, and test datasets
     '''
-    if len(sys.argv) > 1:
-        path = os.getcwd() + '/' + sys.argv[1]
-    else:
-        path = os.getcwd() + '/../regression/data'
+    path = os.getcwd() + '/../regression/data'
     train_path = path + '/train.csv'
     dev_path = path + '/dev.csv'
     test_path = path + '/test.csv'
@@ -348,28 +415,70 @@ def read_data():
 
     return train_input, train_target, dev_input, dev_target, test_input
 
+def usage():
+    print("python3 nn_1.py --<option>")
+    print("List of Options:")
+    print("\t\t--help: Provides help about how to run this file")
+    print("\t\t--save: After training is complete the network weights and biases will be saved in trained_network.txt file")
+    print("\t\t--save_file=<filename>: If you wish to provide a filename where trained network can be saved use this option. Note provide the filename with = is mandatory")
+    print("\t\t--trained_file=<filename>: If a .txt file containing trained network is available then it can be added here.")
+
+def readOptions():
+    save_file = None
+    trained_file = None
+    if len(sys.argv) > 1:
+        for option in sys.argv[1:]:
+            if "help" in option:
+                usage()
+            if "save" in option:
+                save_file = "trained_network.txt"
+            if "save_file" in option:
+                if '=' in option:
+                    i = option.rfind('=')
+                    save_file = option[i+1:]
+                else:
+                    save_file = "trained_network.txt"
+            if "trained_file" in option:
+                if '=' in option:
+                    i = option.rfind('=')
+                    trained_file = option[i+1:]
+    return save_file, trained_file
+
+def save_pred(pred, fname):
+    with open(fname, "w") as f:
+        f.write("Id,Predictions\n")
+        for i in range(len(pred)):
+            f.write(f"{i+1}, {pred[i, 0]}\n")
 
 def main():
 
     # Hyper-parameters 
     max_epochs = 50
     batch_size = 256
-    learning_rate = 0.001
+    learning_rate = 1e-6
     num_layers = 1
     num_units = 64
-    lamda = 0.1 # Regularization Parameter
+    lamda = 0.01 # Regularization Parameter
 
+    save_file, trained_file = readOptions()
     train_input, train_target, dev_input, dev_target, test_input = read_data()
     train_target = (train_target - 1900)/200
     dev_target = (dev_target - 1900)/200
     net = Net(num_layers, num_units)
-    optimizer = Optimizer(learning_rate)
-    train(
-        net, optimizer, lamda, batch_size, max_epochs,
-        train_input, train_target,
-        dev_input, dev_target
-    )
-    #get_test_data_predictions(net, test_input)
+
+    if trained_file is not None:
+        net.set(trained_file)
+    else:
+        optimizer = Optimizer(learning_rate)
+        train(
+            net, optimizer, lamda, batch_size, max_epochs,
+            train_input, train_target,
+            dev_input, dev_target
+        )
+    if save_file is not None:
+        net.save(save_file)
+    pred = get_test_data_predictions(net, test_input)
+    save_pred(pred, "184190001.csv")
 
 
 if __name__ == '__main__':
